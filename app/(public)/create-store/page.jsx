@@ -1,5 +1,5 @@
 'use client'
-import { assets } from "@/assets/assets"
+import { assets } from "../../../assets/assets"
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import toast from "react-hot-toast"
