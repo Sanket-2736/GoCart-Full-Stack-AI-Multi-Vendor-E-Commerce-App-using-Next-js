@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.33.7",
+    "@imagekit/nodejs": "^7.1.1",
     "@neondatabase/serverless": "^1.0.2",
     "@prisma/adapter-neon": "^6.17.1",
     "@prisma/client": "^6.17.1",
