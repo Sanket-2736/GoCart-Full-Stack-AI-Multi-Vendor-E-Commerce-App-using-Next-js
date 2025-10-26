@@ -4,8 +4,15 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import toast from "react-hot-toast"
 import Loading from "@/components/Loading"
+import { useAuth, useUser } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
+import axios from "axios"
 
 export default function CreateStore() {
+
+    const {user} = useUser();
+    const router = useRouter();
+    const {getToken} = useAuth();
 
     const [alreadySubmitted, setAlreadySubmitted] = useState(false)
     const [status, setStatus] = useState("")
@@ -28,7 +35,41 @@ export default function CreateStore() {
 
     const fetchSellerStatus = async () => {
         // Logic to check if the store is already submitted
+        const token = await getToken();
+        try {
+            const {data} = await axios.get('/api/store/create', {
+                headers : {
+                    Authorization : `Bearer ${token}`,
+                }
+            })
 
+            if(["pending", "approved", "rejected"].includes(data.status)){
+                setAlreadySubmitted(true);
+                setStatus(data.status);
+
+                switch(data.status){
+                    case "pending":
+                        setMessage("Your store application is under review. We will notify you once it's approved.");
+                        break;
+                    case "approved":
+                        setMessage("Congratulations! Your store has been approved. Redirecting you to the dashboard...");
+                        setTimeout(() => {
+                            router.push('/store');
+                        }, 5000);
+                        break;
+                    case "rejected":
+                        setMessage("Unfortunately, your store application was rejected. Please review the guidelines and consider reapplying.");
+                        break;
+                    
+                    default : break;
+                }
+            } else {
+                setAlreadySubmitted(false);
+            }
+        } catch (error) {
+            console.error("Error fetching seller status:", error);
+            toast.error(error.response?.data?.error || error.message || "Something went wrong!");
+        }
 
         setLoading(false)
     }
@@ -36,13 +77,49 @@ export default function CreateStore() {
     const onSubmitHandler = async (e) => {
         e.preventDefault()
         // Logic to submit the store details
+        if(!user){
+            return toast.error("Please login to continue!");
+        }
 
+        try {
+            const token = await getToken();
+
+            const formData = new FormData();
+            formData.append('name', storeInfo.name);
+            formData.append('username', storeInfo.username.toLowerCase());
+            formData.append('description', storeInfo.description);
+            formData.append('email', storeInfo.email);
+            formData.append('contact', storeInfo.contact);
+            formData.append('address', storeInfo.address);
+            formData.append('image', storeInfo.image);
+
+            const {data} = await axios.post('/api/store/create', formData, {
+                headers : {
+                    Authorization : `Bearer ${token}`,
+                }
+            });
+
+            toast.success(data.message);
+
+            await fetchSellerStatus();
+        } catch (error) {
+            console.error("Error submitting store details:", error);
+            toast.error(error.response?.data?.error || error.message || "Something went wrong!");
+        }
 
     }
 
     useEffect(() => {
-        fetchSellerStatus()
-    }, [])
+        if(user) fetchSellerStatus()
+    }, [user]);
+
+    if(!user){
+        return (
+            <div className="min-h-[80vh] mx-6 flex items-center justify-center text-slate-400">
+                <h1 className="text-2xl sm:text-4xl font-semibold">Please <span className="text-slate-500">login</span> to continue.</h1>
+            </div>
+        )
+    }
 
     return !loading ? (
         <>

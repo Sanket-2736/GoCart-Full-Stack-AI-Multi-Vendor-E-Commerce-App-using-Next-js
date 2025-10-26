@@ -2,12 +2,18 @@
 import { dummyAdminDashboardData } from "@/assets/assets"
 import Loading from "@/components/Loading"
 import OrdersAreaChart from "@/components/OrdersAreaChart"
+import { useAuth, useUser } from "@clerk/nextjs"
+import axios from "axios"
 import { CircleDollarSignIcon, ShoppingBasketIcon, StoreIcon, TagsIcon } from "lucide-react"
 import { useEffect, useState } from "react"
+import toast from "react-hot-toast"
 
 export default function AdminDashboard() {
 
     const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$'
+
+    const {getToken} = useAuth();
+    const {user} = useUser()
 
     const [loading, setLoading] = useState(true)
     const [dashboardData, setDashboardData] = useState({
@@ -26,13 +32,27 @@ export default function AdminDashboard() {
     ]
 
     const fetchDashboardData = async () => {
-        setDashboardData(dummyAdminDashboardData)
-        setLoading(false)
+        try {
+            const token = await getToken();
+            const {data} = await axios.get('/api/admin/dashboard', {
+                headers : {
+                    Authorization : `Bearer ${token}`
+                }
+            });
+
+            console.log("Admin Dashboard Data:", data.dashboardData);
+
+            setDashboardData(data.dashboardData);
+            setLoading(false);
+        } catch (error) {
+            toast.error("Error fetching admin dashboard data!");
+            setLoading(false);
+        }
     }
 
     useEffect(() => {
-        fetchDashboardData()
-    }, [])
+        if(user) fetchDashboardData()
+    }, [user])
 
     if (loading) return <Loading />
 

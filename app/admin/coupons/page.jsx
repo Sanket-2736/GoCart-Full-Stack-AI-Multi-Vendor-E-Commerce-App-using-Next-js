@@ -4,8 +4,12 @@ import { format } from "date-fns"
 import toast from "react-hot-toast"
 import { DeleteIcon } from "lucide-react"
 import { couponDummyData } from "@/assets/assets"
+import { useUser, useAuth } from "@clerk/nextjs"
+import axios from "axios"
 
 export default function AdminCoupons() {
+    const {user} = useUser();
+    const {getToken} = useAuth();
 
     const [coupons, setCoupons] = useState([])
 
@@ -20,14 +24,48 @@ export default function AdminCoupons() {
     })
 
     const fetchCoupons = async () => {
-        setCoupons(couponDummyData)
+        try {
+            const token = await getToken();
+            const {data} = await axios.get('/api/admin/coupon', {
+                headers : {
+                    Authorization : `Bearer ${token}`
+                }
+            });
+            console.log("Coupons:", data.coupons);
+            setCoupons(data.coupons);
+        } catch (error) {
+            toast.error("Error fetching coupons!");
+            console.error("Fetch Coupons Error:", error);
+        }
     }
 
     const handleAddCoupon = async (e) => {
         e.preventDefault()
-        // Logic to add a coupon
-
-
+        try {
+            // Logic to add a coupon
+            const token = await getToken();
+            newCoupon.discount = Number(newCoupon.discount);
+            newCoupon.expiresAt = new Date(newCoupon.expiresAt);
+            const {data} = await axios.post('/api/admin/coupon', {coupon: newCoupon}, {
+                headers : {
+                    Authorization : `Bearer ${token}`
+                }
+            });
+            toast.success(data.message);
+            setNewCoupon({
+                code: '',
+                description: '',
+                discount: '',
+                forNewUser: false,
+                forMember: false,
+                isPublic: false,
+                expiresAt: new Date()
+            });
+            await fetchCoupons();
+        } catch (error) {
+            toast.error("Error adding coupon!");
+            console.error("Add Coupon Error:", error);
+        }
     }
 
     const handleChange = (e) => {
@@ -35,9 +73,23 @@ export default function AdminCoupons() {
     }
 
     const deleteCoupon = async (code) => {
-        // Logic to delete a coupon
+        try {
+            const confirm  = window.confirm("Are you sure you want to delete this coupon?");
+            if(!confirm) return;
 
-
+            const token = await getToken();
+            const deleteUrl = `/api/admin/coupon?code=${code}`;
+            const {data} = await axios.delete(deleteUrl, {
+                headers : {
+                    Authorization : `Bearer ${token}`
+                }
+            });
+            toast.success('Coupon deleted successfully!');
+            await fetchCoupons();
+        } catch (error) {
+            toast.error("Error deleting coupon!");
+            console.error("Delete Coupon Error:", error);
+        }
     }
 
     useEffect(() => {

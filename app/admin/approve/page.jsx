@@ -2,29 +2,64 @@
 import { storesDummyData } from "@/assets/assets"
 import StoreInfo from "@/components/admin/StoreInfo"
 import Loading from "@/components/Loading"
+import { useUser, useAuth } from "@clerk/nextjs"
+import axios from "axios"
 import { useEffect, useState } from "react"
 import toast from "react-hot-toast"
 
 export default function AdminApprove() {
+
+    const {user} = useUser();
+
+    const {getToken} = useAuth();
 
     const [stores, setStores] = useState([])
     const [loading, setLoading] = useState(true)
 
 
     const fetchStores = async () => {
-        setStores(storesDummyData)
-        setLoading(false)
+        try {
+            const token = await getToken();
+            const {data} = await axios.get('/api/admin/approve-store', {
+                headers : {
+                    Authorization : `Bearer ${token}`
+                }
+            });
+            console.log("Stores for Approval:", data.stores);
+
+            setStores(data.stores);
+            setLoading(false);
+        } catch (error) {
+            toast.error("Error fetching stores for approval!");
+            setLoading(false);
+        }
     }
 
     const handleApprove = async ({ storeId, status }) => {
         // Logic to approve a store
+        try {
+            const token = await getToken();
+            const {data} = await axios.post('/api/admin/approve-store', {
+                storeId, status
+            }, {
+                storeId,
+                status
+            }, {
+                headers : {
+                    Authorization : `Bearer ${token}`
+                }
+            });
 
-
+            toast.success(data.message);
+        } catch (error) {
+            toast.error("Error approving/rejecting store!");
+            console.error("Approve/Reject Store Error:", error);            
+        }
     }
 
     useEffect(() => {
-            fetchStores()
-    }, [])
+        if(user) fetchStores();
+    }, [user])
 
     return !loading ? (
         <div className="text-slate-500 mb-28">
