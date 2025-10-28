@@ -5,60 +5,83 @@ import { getAuth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
-    try {
-        const {userId} = getAuth(req);
-        const storeId = await authSeller(userId);
+    console.log("📦 [API] /api/store/product - Product creation started");
 
-        if(!storeId){
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    try {
+        const { userId } = getAuth(req);
+        console.log("👤 Clerk userId:", userId);
+
+        const storeId = await authSeller(userId);
+        console.log("🏬 Store ID (from authSeller):", storeId);
+
+        if (!storeId) {
+            console.warn("🚫 Unauthorized access — user is not a seller");
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const formData = await req.formData();
+        console.log("🧾 FormData received:", Array.from(formData.keys()));
 
-        const name = formData.get('name');
-        const description = formData.get('description');
-        const category = formData.get('category');
-        const images = formData.getAll('images');
-        const price = Number(formData.get('price'));
-        const mrp = Number(formData.get('mrp'));
-        const image = formData.get('image');
+        const name = formData.get("name");
+        const description = formData.get("description");
+        const category = formData.get("category");
+        const images = formData.getAll("images");
+        const price = Number(formData.get("price"));
+        const mrp = Number(formData.get("mrp"));
 
-        if(!name || !description || !category || imagest.length === 0 || !price || !mrp || !image){
-            return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+        // Validation
+        if (!name || !description || !category || images.length === 0 || !price || !mrp) {
+            console.warn("⚠️ Missing required fields in product creation");
+            return NextResponse.json({ error: "Missing fields" }, { status: 400 });
         }
 
-        const imagesUrl = await Promise.all(images.map(async (image) => {
-            const buffer = Buffer.from(await image.arrayBuffer());
-            const response = await imagekit.files.upload({
-                file : buffer,
-                fileName : `${Date.now()}-${name}`,
-                folder: 'products'
-            });
+        console.log(`🖼️ Uploading ${images.length} image(s) to ImageKit...`);
 
-            const url = imagekit.helper.buildSrc({
-                src : response.filePath,
-                transformation:[
-                    {quality: "auto"},
-                    {format: "webp"},
-                    {width: "1024"}
-                ]
+        const imagesUrl = await Promise.all(
+            images.map(async (image) => {
+                const buffer = Buffer.from(await image.arrayBuffer());
+                const response = await imagekit.upload({
+                    file: buffer,
+                    fileName: `${Date.now()}-${name}`,
+                    folder: "products",
+                });
+
+                const url = imagekit.url({
+                    src: response.url,
+                    transformation: [
+                        { quality: "auto" },
+                        { format: "webp" },
+                        { width: "1024" },
+                    ],
+                });
+
+                console.log("✅ Uploaded image:", url);
+                return url;
             })
+        );
 
-            return url;
-        }))
 
+        console.log("🗄️ Saving product to database...");
         await prisma.product.create({
-            data : {
-                name, description, mrp, price, category, images : imagesUrl, storeId
-            }
+            data: {
+                name,
+                description,
+                mrp,
+                price,
+                category,
+                images: imagesUrl,
+                storeId,
+            },
         });
 
-        return NextResponse.json({ message: 'Product created successfully' });
+        console.log("✅ Product created successfully!");
+        return NextResponse.json({ message: "Product created successfully" });
     } catch (error) {
-        console.error('Error creating product:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        console.error("❌ Error creating product:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
+
 
 export async function GET(req) {
     try {

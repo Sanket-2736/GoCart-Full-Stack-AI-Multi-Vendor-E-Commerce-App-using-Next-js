@@ -1,16 +1,21 @@
 'use client'
 import { dummyStoreDashboardData } from "@/assets/assets"
 import Loading from "@/components/Loading"
+import { useAuth, useUser } from "@clerk/nextjs"
+import axios from "axios"
 import { CircleDollarSignIcon, ShoppingBasketIcon, StarIcon, TagsIcon } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import toast from "react-hot-toast"
 
 export default function Dashboard() {
 
     const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$'
 
-    const router = useRouter()
+    const router = useRouter();
+    const {getToken} = useAuth();
+    const {user} = useUser();
 
     const [loading, setLoading] = useState(true)
     const [dashboardData, setDashboardData] = useState({
@@ -28,13 +33,27 @@ export default function Dashboard() {
     ]
 
     const fetchDashboardData = async () => {
-        setDashboardData(dummyStoreDashboardData)
-        setLoading(false)
+        try {
+            const token = await getToken();
+            const {data} = await axios.get('/api/store/dashboard', {
+                headers :{
+                    Authorization : `Bearer ${token }`
+                }
+            });
+            console.log("Dashboard Data:", data);
+
+            setDashboardData(data.dashboardData);
+        } catch (error) {
+            toast.error("Error fetching dashboard data!");
+            console.error("Fetch Dashboard Data Error:", error);
+        }
+
+        setLoading(false);
     }
 
     useEffect(() => {
-        fetchDashboardData()
-    }, [])
+        if(user) fetchDashboardData()
+    }, [user])
 
     if (loading) return <Loading />
 

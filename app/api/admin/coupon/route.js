@@ -14,6 +14,7 @@ export async function POST(req){
         }
 
         const {coupon} = await req.json();
+        console.log("Creating coupon:", coupon);
 
         if(!coupon || !coupon.code || !coupon.discount){
             return NextResponse.json({ error : "Invalid coupon data!" }, {status: 400});
@@ -25,13 +26,15 @@ export async function POST(req){
             data : coupon            
         }).then(async (coupon) => {
             // fn to delete coupon on expiry
-            await inngest.send({
-                name : 'app/coupon.expired',
-                data : {
-                    code : coupon.code,
-                    expires_at : coupon.expiresAt
-                }
-            })
+            try {
+                await inngest.send({
+                    name: 'app/coupon.expired',
+                    data: { code: coupon.code, expires_at: coupon.expiresAt }
+                });
+                console.log("Inngest event sent successfully!");
+            } catch (err) {
+                console.error("Error sending Inngest event:", err);
+            }
         });
 
         return NextResponse.json({ message : "Coupon created successfully!" });
@@ -45,6 +48,7 @@ export async function DELETE(req) {
     try {
         const {userId} = getAuth(req);
         const isAdmin = await authAdmin(userId);
+        console.log("User ID:", userId, "Is Admin:", isAdmin);
 
         if(!isAdmin){
             return NextResponse.json({ error : "Not authorised!" }, {status: 401});
@@ -53,6 +57,7 @@ export async function DELETE(req) {
         const {searchParams} = req.nextUrl;
 
         const code = searchParams.get('code');
+        console.log("Deleting coupon with code:", code);
         if(!code){
             return NextResponse.json({ error : "Coupon code is required!" }, {status: 400});
         }

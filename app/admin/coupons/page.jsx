@@ -46,11 +46,13 @@ export default function AdminCoupons() {
             const token = await getToken();
             newCoupon.discount = Number(newCoupon.discount);
             newCoupon.expiresAt = new Date(newCoupon.expiresAt);
+            console.log("Adding Coupon:", newCoupon);
             const {data} = await axios.post('/api/admin/coupon', {coupon: newCoupon}, {
                 headers : {
                     Authorization : `Bearer ${token}`
                 }
             });
+            console.log("Add Coupon Response:", data);
             toast.success(data.message);
             setNewCoupon({
                 code: '',
@@ -79,6 +81,7 @@ export default function AdminCoupons() {
 
             const token = await getToken();
             const deleteUrl = `/api/admin/coupon?code=${code}`;
+            console.log("Delete URL:", deleteUrl);
             const {data} = await axios.delete(deleteUrl, {
                 headers : {
                     Authorization : `Bearer ${token}`

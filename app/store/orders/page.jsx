@@ -2,23 +2,55 @@
 import { useEffect, useState } from "react"
 import Loading from "@/components/Loading"
 import { orderDummyData } from "@/assets/assets"
+import { useAuth, useUser } from "@clerk/nextjs"
+import axios from "axios"
+import toast from "react-hot-toast"
 
 export default function StoreOrders() {
     const [orders, setOrders] = useState([])
     const [loading, setLoading] = useState(true)
     const [selectedOrder, setSelectedOrder] = useState(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
-
+    const {getToken} = useAuth();
+    const {user} = useUser();
 
     const fetchOrders = async () => {
-       setOrders(orderDummyData)
-       setLoading(false)
+       try {
+        const token = await getToken();
+        const {data} = await axios.get('/api/store/orders', {
+            headers :{
+                Authorization : `Bearer ${token }`
+            }
+        });
+        console.log("Fetched Orders:", data.orders);
+        setOrders(data.orders);
+        setLoading(false);
+       } catch (error) {
+        toast.error("Error fetching orders!");
+        console.error("Fetch Orders Error:", error);
+        setLoading(false);
+       }
     }
-
+    
     const updateOrderStatus = async (orderId, status) => {
         // Logic to update the status of an order
-
-
+        try {
+        const token = await getToken();
+        const {data} = await axios.post('/api/store/orders', {orderId, status}, {
+            headers :{
+                Authorization : `Bearer ${token }`
+            }
+        });
+        console.log("Fetched Orders:", data.orders);
+        setOrders(prev => prev.map(order =>
+            order.id === orderId ? {...order, status} : order
+        ));
+        setLoading(false);
+       } catch (error) {
+        toast.error("Error fetching orders!");
+        console.error("Fetch Orders Error:", error);
+        setLoading(false);
+       }
     }
 
     const openModal = (order) => {
@@ -32,8 +64,8 @@ export default function StoreOrders() {
     }
 
     useEffect(() => {
-        fetchOrders()
-    }, [])
+        if(user) fetchOrders()
+    }, [user])
 
     if (loading) return <Loading />
 
