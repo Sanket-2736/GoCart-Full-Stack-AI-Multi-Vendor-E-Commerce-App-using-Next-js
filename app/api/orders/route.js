@@ -1,9 +1,9 @@
 import prisma from "@/lib/prisma";
 import { getAuth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { PaymentMethod, Prisma } from "@prisma/client"; // ✅ Added
+import { PaymentMethod, Prisma } from "@prisma/client"; 
+import Stripe from 'stripe'
 
-// ---------------- POST: Create new order ----------------
 export async function POST(req) {
     console.log("📩 [POST /api/order] Request received for new order creation.");
 
@@ -30,7 +30,6 @@ export async function POST(req) {
         let coupon = null;
         let couponDataForOrder = {};
 
-        // ---------------- Coupon Handling ----------------
         if (couponCode) {
             console.log("🏷️ Coupon code provided:", couponCode);
             const codeToSearch = couponCode.toUpperCase();
@@ -72,7 +71,6 @@ export async function POST(req) {
             console.log("✅ Coupon validated:", couponDataForOrder);
         }
 
-        // ---------------- Product and Order Grouping ----------------
         const orderByStore = new Map();
         let totalCartAmount = 0;
 
@@ -98,7 +96,6 @@ export async function POST(req) {
 
         console.log("✅ Products grouped by store:", Array.from(orderByStore.keys()));
 
-        // ---------------- Order Creation ----------------
         let fullAmount = 0;
         let isShippingFeeAdded = false;
         const isProMember = has({ plan: "pro" });
@@ -146,7 +143,33 @@ export async function POST(req) {
             orderIds.push(order.id);
         }
 
-        // ---------------- Clear Cart ----------------
+        if(paymentMethod === "STRIPE"){
+            const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+            const origin = await req.headers.get('origin');
+
+            const session = await stripe.checkout.sessions({
+                payment_method_types : ['card'],
+                line_items : [{
+                    price_data : {
+                        currency : 'usd',
+                        product_data : {
+                            name : 'Order'
+                        },unit_amount : Math.round(fullAmount * 100)
+                    },
+                    quantity: 1
+                }],
+                expires_at : Math.floor(Date.now() / 1000) + 30 * 60,
+                mode : 'payment',
+                success_url: `${origin}/loading?nextUrl=orders`,
+                cancel_url: `${origin}/cart`,
+                metadata : {
+                    orderIds: orderIds.join(','), userId, appId: 'gocart'
+                }
+            });
+
+            return NextResponse.json({session})
+        }
+
         await prisma.user.update({
             where: { id: userId },
             data: { cart: {} },
@@ -165,7 +188,6 @@ export async function POST(req) {
     }
 }
 
-// ---------------- GET: Get all orders for a user ----------------
 export async function GET(req) {
     console.log("📩 [GET /api/order] Request received for fetching user orders.");
 

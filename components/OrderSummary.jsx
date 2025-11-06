@@ -1,11 +1,12 @@
 import { PlusIcon, SquarePenIcon, XIcon } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import AddressModal from './AddressModal';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { Protect, useAuth, useUser } from '@clerk/nextjs';
 import axios from 'axios';
+import { fetchCart } from '@/lib/features/cart/cartSlice';
 
 const OrderSummary = ({ totalPrice, items }) => {
 
@@ -20,7 +21,6 @@ const OrderSummary = ({ totalPrice, items }) => {
     const [couponCodeInput, setCouponCodeInput] = useState('');
     const [coupon, setCoupon] = useState('');
 
-    // 🧾 Debug log
     useEffect(() => {
         console.log("📦 Address list in OrderSummary:", addressList);
     }, [addressList]);
@@ -32,15 +32,12 @@ const OrderSummary = ({ totalPrice, items }) => {
         event.preventDefault();
         try {
             if(!user){
-                // Suggest user signs in, or redirect them. 
-                // Clerk handles most redirects, but an explicit toast is helpful.
                 return toast('Please login to proceed!'); 
             }
 
             const token = await getToken();
             const {data} = await axios.post('/api/coupon', {code : couponCodeInput}, {
                 headers : {
-                    // This is the correct fix for the 401 error!
                     Authorization : `Bearer ${token}` 
                 }
             });
@@ -49,44 +46,68 @@ const OrderSummary = ({ totalPrice, items }) => {
             toast.success('Coupon Applied');
         } catch (error) {
             
-            // 🔥 CRITICAL FIX: Extract the specific error message from the server response
             const serverErrorMessage = error.response?.data?.error;
 
             if (serverErrorMessage) {
-                // Display the error message sent from your API Route
-                // e.g., "Unauthorized", "Coupon not found!", "Coupon valid for new users only."
                 toast.error(serverErrorMessage);
             } else if (error.code === "ERR_BAD_REQUEST" && error.response?.status === 401) {
-                // Fallback for the original error if server message is somehow missing
                 toast.error("Authentication failed. Please sign in again.");
             } else {
-                // Generic error for network issues or unhandled server 500
                 toast.error("Failed to check coupon code."); 
                 console.error("Coupon API Error:", error);
             }
-            
-            // Clear coupon state on failure
             setCoupon(''); 
         }
     }
 
+    const dispatch = useDispatch()
+
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
-        router.push('/orders');
+        try {
+            if(!user){
+                return toast("Please login to continue!");
+            }
+
+            if(!selectedAddress){
+                return toast("Please select and address!");
+            }
+
+            const token = await getToken();
+
+            const orderData = {
+                addressId : selectedAddress.id,
+                items, paymentMethod, 
+            }
+
+            if(coupon){
+                orderData.couponCode = coupon.code
+            }
+
+            const {data} = await axios.post('/api/orders', orderData, {
+                headers : {Authorization : `Bearer ${token}`}
+            });
+
+            if(paymentMethod === "STRIPE"){
+                window.location.href = data.session.url;
+            } else {
+                toast.success(data.message); router.push('/orders');
+            }
+            dispatch(fetchCart({getToken}))
+        } catch (error) {
+            console.error(error);
+            toast.error("Internal server error!");
+        }
     }
 
-    // --- Discount Calculation (Improved) ---
     const shippingCost = user?.publicMetadata?.plan === 'pro' ? 0 : 5;
     
     let discountAmount = 0;
     if (coupon) {
-        // Assuming your coupon object has a 'discount' field representing a percentage
         discountAmount = totalPrice * (coupon.discount / 100);
     }
     
     const finalTotal = totalPrice + shippingCost - discountAmount;
-    // --- End Discount Calculation ---
-
 
     return (
         <div className='w-full max-w-lg lg:max-w-[340px] bg-slate-50/30 border border-slate-200 text-slate-500 text-sm rounded-xl p-7'>
