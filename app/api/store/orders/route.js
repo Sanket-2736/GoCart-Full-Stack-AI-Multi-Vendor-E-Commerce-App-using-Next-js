@@ -3,7 +3,7 @@ import authSeller from "@/middlewares/authSeller";
 import { getAuth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-export async function post(req) {
+export async function POST(req) {
     try {
         const {userId} = getAuth(req);
         const storeId = await authSeller(userId);
@@ -31,7 +31,7 @@ export async function post(req) {
     }
 }
 
-export async function get(req) {
+export async function GET(req) {
     try {
         const {userId} = getAuth(req);
         const storeId = await authSeller(userId);

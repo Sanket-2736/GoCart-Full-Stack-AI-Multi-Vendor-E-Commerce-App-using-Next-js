@@ -35,7 +35,7 @@ export async function GET(req) {
         console.log("✅ Authenticated userId:", userId);
 
         const addresses = await prisma.address.findMany({
-            where: { id:userId }
+            where: { userId }
         });
 
         console.log(`📦 Found ${addresses.length} address(es):`, addresses);

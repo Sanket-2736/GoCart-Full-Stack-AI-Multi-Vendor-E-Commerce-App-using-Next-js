@@ -18,8 +18,8 @@ export async function POST(req) {
             where : {productId, orderId}
         });
 
-        if(!isAlreadyRated){
-            return NextResponse.json({error : "Product already rated!"}, {status : 404})
+        if(isAlreadyRated){
+            return NextResponse.json({error : "Product already rated!"}, {status : 400})
         }
 
         const response = await prisma.rating.create({
@@ -35,7 +35,7 @@ export async function POST(req) {
 
 export async function GET(req) {
     try {
-        const {userId} = getAuth();
+        const {userId} = getAuth(req);
         if(!userId){
             return NextResponse.json({error: "Unauthorised!"}, {status:404});
         }
